@@ -10,7 +10,7 @@ CORS(app, resources={
 @app.route('/')
 def home():
     # We return a Dictionary, which Flask turns into JSON automatically
-    return jsonify({"message": "Python is talking to React! 🚀"})
+    return jsonify({"message": "Python is talking to React! 🚀 DATAWORLD STYLE"})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
