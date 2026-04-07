@@ -4,7 +4,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://full-stack-dummy.vercel.app"]
+        "origins": ["https://fullstack-dataworld.vercel.app"]
     }
 })
 @app.route('/')
