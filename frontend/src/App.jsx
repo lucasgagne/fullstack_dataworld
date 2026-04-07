@@ -5,7 +5,7 @@ function App() {
 
   useEffect(() => {
     // This tells React to go grab data from the Python server
-    fetch('https://full-stack-dummy.onrender.com/')
+    fetch('https://dataworld-mfya.onrender.com/')
       .then(res => res.json())
       .then(data => {
         setMsg(data.message); // This replaces "Loading..." with the real message
