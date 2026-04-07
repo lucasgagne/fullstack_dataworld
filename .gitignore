@@ -1,0 +1,12 @@
+# Ignore Python virtual environment
+backend/venv/
+__pycache__/
+*.pyc
+
+# Ignore React dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Ignore environment variables (security!)
+.env
+.env.local
