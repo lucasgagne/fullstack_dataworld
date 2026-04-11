@@ -38,7 +38,12 @@ def login():
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Python says: Welcome Home! 🏠"})
+    return jsonify({"message": "Python says: Welcome Home! 🏠 sugma dick!"})
+
+@app.route('/welcome/<name>')
+def welcome(name):
+    # Flask captures whatever is in the <name> part of the URL
+    return {"message": f"Welcome {name}, the backend is ready for your data!"}
 
 @app.route('/world')
 def world():

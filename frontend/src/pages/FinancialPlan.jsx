@@ -28,6 +28,38 @@ const FinancialPlan = () => {
     }
   };
 
+ 
+const calculateAnalysis = async () => {
+        // Use the environment variable if it exists; otherwise, default to your Render URL
+        // const API_BASE = import.meta.env.VITE_API_URL || "https://your-backend-name.onrender.com";
+         // Inside FinancialPlan component...
+        const API_BASE = import.meta.env.DEV 
+        ? 'http://127.0.0.1:5000'                      // Local Python
+        : 'https://dataworld-mfya.onrender.com';       // Render Python
+      
+        try {
+          const response = await fetch(`${API_BASE}/calculate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+              grid: grid.filter(row => row.some(cell => cell.trim() !== "")) 
+            }),
+          });
+          // ... rest of your code
+  
+      const result = await response.json();
+      console.log("Analysis Result:", result);
+      alert(`Total Calculated: $${result.total_sum}`);
+      
+    } catch (error) {
+      console.error("Error sending data:", error);
+      alert("Failed to connect to backend.");
+    }
+  };
+  
+
   const handleCellChange = (rowIndex, colIndex, value) => {
     const updatedGrid = grid.map((row, rIdx) => {
       if (rIdx !== rowIndex) return row;
@@ -90,12 +122,9 @@ const FinancialPlan = () => {
       </div>
 
       <div style={{ marginTop: '20px' }}>
-        <button 
-          onClick={() => console.log("Final Grid:", grid)} 
-          style={calculateBtnStyle}
-        >
-          Calculate Analysis
-        </button>
+      <button onClick={calculateAnalysis} style={calculateBtnStyle}>
+        Calculate Analysis
+      </button>
       </div>
     </div>
   );
