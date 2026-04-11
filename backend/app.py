@@ -1,19 +1,40 @@
-from flask import Flask, jsonify
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+import os
+
+# Initialize Firebase Admin
+# Make sure this file is in your /backend folder!
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 app = Flask(__name__)
-# List of all "Trustworthy" frontends
-allowed_origins = [
-    "http://localhost:5173",              # Local Vite default port
-    "http://127.0.0.1:5173",             # Local Vite alternative
-    "https://fullstack-dataworld.vercel.app" # Your live production site
-]
 
-CORS(app, resources={
-    r"/*": {
-        "origins": allowed_origins
-    }
-})
+# IMPORTANT: Added your Vercel Preview URL pattern to origins
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:5173", 
+    "https://fullstack-dataworld.vercel.app"
+]}})
+
+@app.route('/world-data')
+def get_world_data():
+    # Make sure 'excel_data' matches the collection name in Firestore
+    docs = db.collection('excel_data').stream()
+    data = [doc.to_dict() for doc in docs]
+    return jsonify({"message": "Data Loaded from Firebase!", "payload": data})
+
+@app.route('/login', methods=['POST'])
+def login():
+    # In a real app, React sends a token, Python verifies it
+    id_token = request.json.get('token')
+    try:
+        decoded_token = auth.verify_id_token(id_token)
+        uid = decoded_token['uid']
+        return jsonify({"status": "success", "uid": uid})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 401
 
 @app.route('/')
 def home():
