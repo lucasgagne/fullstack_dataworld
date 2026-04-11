@@ -1,12 +1,14 @@
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { useState } from "react";
+import { auth } from "../firebase"; // Adjust path based on folder depth
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { Link } from 'react-router-dom';
+
 
 const Login = ({ setToken }) => {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
 
   const handleLogin = async () => {
-    const auth = getAuth();
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pw);
       const token = await userCredential.user.getIdToken();
@@ -25,8 +27,20 @@ const Login = ({ setToken }) => {
         <input type="email" onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inputStyle} />
         <input type="password" onChange={(e) => setPw(e.target.value)} placeholder="Password" style={inputStyle} />
         <button onClick={handleLogin} style={loginBtnStyle}>Login</button>
+      
       </div>
+      
+      
+      {/* This empty div creates the gap you need */}
+<div style={{ height: '20px' }}></div>
+
+<Link to="/Signup" style={loginBtnStyle}>
+  No account? Create one BRO
+</Link>
+    
     </div>
+    
+    
   );
 };
 

@@ -1,89 +1,62 @@
-import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import Login from './pages/login'; // Make sure the path matches your folder
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// Remove: import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase"; // Import the initialized auth from your new file
 
-// --- 1. FIREBASE CONFIG ---
-const firebaseConfig = {
-  apiKey: "AIzaSyB5Fks8PSo_4k3q0jany0BI6ereRNl6-U0",
-  authDomain: "dataworld-a4afa.firebaseapp.com",
-  projectId: "dataworld-a4afa",
-  storageBucket: "dataworld-a4afa.firebasestorage.app",
-  messagingSenderId: "858436173058",
-  appId: "1:858436173058:web:ea37ea24eaf680398cd61b"
-};
+// 1. Component Imports
+import Sidebar from './components/Sidebar';
+import Home from './pages/Home';
+import FinancialPlan from './pages/FinancialPlan';
+import WorldData from './pages/WorldData';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-
+// 2. CONFIGURATION: This was missing!
 const API_BASE_URL = import.meta.env.DEV 
   ? 'http://127.0.0.1:5000'                      
-  : 'https://dataworld-mfya.onrender.com';       
+  : 'https://dataworld-mfya.onrender.com';
 
-// --- 2. MODULAR COMPONENT ---
-const PageShell = ({ title, apiEndpoint }) => {
-  const [data, setData] = useState("Click the button to load data...");
-
-  const handleCallPython = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}${apiEndpoint}`);
-      const result = await res.json();
-      setData(result.message);
-    } catch (err) {
-      setData("Error calling Python!");
-      console.error(err);
-    }
-  };
-
-  return (
-    <div style={{ padding: '40px' }}>
-      <h1>{title}</h1>
-      <button onClick={handleCallPython} style={btnStyle}>Run {title} Function</button>
-      <div style={msgBoxStyle}><h3>{data}</h3></div>
-    </div>
-  );
-};
-
-// --- 3. MAIN APP ---
 function App() {
+  // 3. AUTH LOGIC: Replacing the "useAuthStatus" placeholder
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
+    // const auth = getAuth(); Removing this since auth is now imported at the top
+
+    // This listens to Firebase to see if a user is logged in
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
+    
+    // Cleanup listener on unmount
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={{ padding: '50px' }}>Loading DataWorld...</div>;
 
   return (
     <Router>
-      <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', margin: 0, padding: 0, minHeight: '100vh' }}>
         
-        {/* Only show sidebar if user is logged in */}
-        {user && (
-          <nav style={sidebarStyle}>
-            <h2 style={{ color: 'white' }}>DataWorld</h2>
-            <Link to="/" style={linkStyle}>🏠 Home</Link>
-            <Link to="/world" style={linkStyle}>🌍 World Data</Link>
-            <Link to="/finance" style={linkStyle}>💰 Financial Plan</Link>
-            <button onClick={() => auth.signOut()} style={{marginTop: '20px'}}>Logout</button>
-          </nav>
-        )}
+        {/* Sidebar only shows if user exists */}
+        {user && <Sidebar />}
 
         <main style={{ flex: 1, backgroundColor: '#f4f7f6' }}>
           <Routes>
+            {/* Public Routes */}
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+            <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/signup" />} />
+
+            {/* Private Routes - Passing the apiBase prop */}
+            <Route path="/" element={user ? <Home /> : <Navigate to="/login" />} />
+            <Route path="/world" element={user ? <WorldData apiBase={API_BASE_URL} /> : <Navigate to="/login" />} />
+            <Route path="/finance" element={user ? <FinancialPlan apiBase={API_BASE_URL} /> : <Navigate to="/login" />} />
             
-            {/* Protected Routes */}
-            <Route path="/" element={user ? <PageShell title="Home" apiEndpoint="/" /> : <Navigate to="/login" />} />
-            <Route path="/world" element={user ? <PageShell title="World Data" apiEndpoint="/world" /> : <Navigate to="/login" />} />
-            <Route path="/finance" element={user ? <PageShell title="Financial Plan" apiEndpoint="/finance" /> : <Navigate to="/login" />} />
+            # Catch-all: Redirect unknown URLs to Home
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
       </div>
@@ -91,44 +64,4 @@ function App() {
   );
 }
 
-// Keep your styles (sidebarStyle, linkStyle, etc.) here...
-
-
-const sidebarStyle = { 
-  width: '250px', 
-  backgroundColor: '#2c3e50', 
-  padding: '20px', 
-  display: 'flex', 
-  flexDirection: 'column', 
-  gap: '10px',
-  height: '100vh',        // Takes full height of the screen
-  position: 'sticky',     // Stays put even if you scroll the content
-  top: 0,                 // Sticks to the very top
-  left: 0,                // Sticks to the very left
-  boxSizing: 'border-box' // Ensures padding doesn't push the width past 250px
-};
-const linkStyle = { 
-  color: '#ecf0f1', 
-  textDecoration: 'none', 
-  fontSize: '18px', 
-  padding: '12px', 
-  borderRadius: '5px'
-};
-
-const btnStyle = { 
-  padding: '12px 24px', 
-  backgroundColor: '#646cff', 
-  color: 'white', 
-  border: 'none', 
-  borderRadius: '5px',
-  cursor: 'pointer'
-};
-
-const msgBoxStyle = { 
-  marginTop: '20px', 
-  padding: '20px', 
-  border: '2px solid #646cff', 
-  borderRadius: (10),
-  backgroundColor: 'white'
-};
 export default App;
