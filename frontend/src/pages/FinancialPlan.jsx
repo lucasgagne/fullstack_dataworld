@@ -46,7 +46,7 @@ const FinancialPlan = () => {
     try {
       const response = await fetch(`${API_BASE}/calculate/${encoded}`);
       const data = await response.json();
-      setAnalysisResult(data.message);
+      setAnalysisResult(data);
 
     } catch (err) {
       console.error(err);
@@ -117,8 +117,8 @@ const FinancialPlan = () => {
       {analysisResult && (
         <div style={{ marginTop: '20px', padding: '15px', background: '#f8f8f8', borderRadius: '6px' }}>
           <h4>📊 Analysis Result</h4>
-          {/* <p><strong>Total Sum:</strong> ${analysisResult.total_sum}</p> */}
-          <p><strong>Total Sum:</strong> ${analysisResult}</p>
+          <p><strong>Total Sum:</strong> ${analysisResult.total_sum}</p>
+          {/* <p><strong>Total Sum:</strong> ${analysisResult}</p> */}
 
         </div>
       )}

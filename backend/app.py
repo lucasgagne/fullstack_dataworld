@@ -45,16 +45,35 @@ def welcome(name):
     # Flask captures whatever is in the <name> part of the URL
     return {"message": f"Welcome {name}, the backend is ready for your data!"}
 
+
 # @app.route('/calculate/<data>')
 # def calculate(data):
-#     # # Flask captures whatever is in the <name> part of the URL
-#     # return {"message": f"Welcome {data}, the backend is ready for your data!"}
-#     # Flask captures whatever is in the <name> part of the URL
-#     print("the data: ", data)
-#     return {"message": f"Welcome {data}, the backend is ready for your data!"}
+#     return jsonify({"message": f"Received: {data}"})
+
 @app.route('/calculate/<data>')
 def calculate(data):
-    return jsonify({"message": f"Received: {data}"})
+    print("the data: ", data)
+    import json
+
+    try:
+        grid = json.loads(data)
+
+        total = 0
+        for row in grid:
+            try:
+                total += float(row[1])
+            except:
+                pass
+
+        return jsonify({
+            "total_sum": total,
+            "rows_received": len(grid),
+            "message": "Calculation complete"
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 
 @app.route('/world')
 def world():
