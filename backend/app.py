@@ -50,29 +50,25 @@ def welcome(name):
 # def calculate(data):
 #     return jsonify({"message": f"Received: {data}"})
 
-@app.route('/calculate/<data>')
-def calculate(data):
-    print("the data: ", data)
+@app.route('/calculate', methods=['POST'])
+def calculate():
     import json
 
-    try:
-        grid = json.loads(data)
+    data = request.get_json()
+    grid = data.get("grid", [])
 
-        total = 0
-        for row in grid:
-            try:
-                total += float(row[1])
-            except:
-                pass
+    total = 0
+    for row in grid:
+        try:
+            total += float(row[1])
+        except:
+            pass
 
-        return jsonify({
-            "total_sum": total,
-            "rows_received": len(grid),
-            "message": "Calculation complete"
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    return jsonify({
+        "total_sum": total,
+        "rows_received": len(grid),
+        "message": "Calculation complete"
+    })
 
 
 @app.route('/world')

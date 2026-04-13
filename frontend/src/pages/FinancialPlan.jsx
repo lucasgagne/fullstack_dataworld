@@ -41,10 +41,15 @@ const FinancialPlan = () => {
       return alert("Please paste or enter some data first!");
     }
 
-    const encoded = encodeURIComponent(JSON.stringify(cleanedGrid));
+    // const encoded = encodeURIComponent(JSON.stringify(cleanedGrid));
 
     try {
-      const response = await fetch(`${API_BASE}/calculate/${encoded}`);
+      // const response = await fetch(`${API_BASE}/calculate/${encoded}`);
+      const response = await fetch(`${API_BASE}/calculate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grid: cleanedGrid })
+      });
       const data = await response.json();
       setAnalysisResult(data);
 
