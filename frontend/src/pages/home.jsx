@@ -21,7 +21,7 @@ import React, { useState } from 'react';
 
 const Home = () => {
   const [backendMessage, setBackendMessage] = useState("");
-
+  const [welcomeMessage, setWelcomeMessage] = useState("");
   const [nameInput, setNameInput] = useState("");
 
   // Get the URL from environment variables or default to local for dev
@@ -32,6 +32,7 @@ const Home = () => {
       const response = await fetch(`${API_BASE}/`);
       const data = await response.json();
       setBackendMessage(data.message);
+      // setBackendMessage("wassaaaapppp");
     } catch (err) {
       console.error(err);
       setBackendMessage("Failed to connect to Python backend ❌");
@@ -94,6 +95,11 @@ const Home = () => {
         {backendMessage && (
           <p style={{ marginTop: '15px', fontWeight: 'bold', color: '#555' }}>
             Backend says: {backendMessage}
+          </p>
+        )}
+        {welcomeMessage && (
+          <p style={{ marginTop: '15px', fontWeight: 'bold', color: '#555' }}>
+            Backend says: {welcomeMessage}
           </p>
         )}
       </div>
