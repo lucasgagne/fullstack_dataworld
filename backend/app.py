@@ -45,6 +45,17 @@ def welcome(name):
     # Flask captures whatever is in the <name> part of the URL
     return {"message": f"Welcome {name}, the backend is ready for your data!"}
 
+# @app.route('/calculate/<data>')
+# def calculate(data):
+#     # # Flask captures whatever is in the <name> part of the URL
+#     # return {"message": f"Welcome {data}, the backend is ready for your data!"}
+#     # Flask captures whatever is in the <name> part of the URL
+#     print("the data: ", data)
+#     return {"message": f"Welcome {data}, the backend is ready for your data!"}
+@app.route('/calculate/<data>')
+def calculate(data):
+    return jsonify({"message": f"Received: {data}"})
+
 @app.route('/world')
 def world():
     return jsonify({"message": "Python says: Here is the World Data! 🌍"})
