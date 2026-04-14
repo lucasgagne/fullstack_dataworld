@@ -50,24 +50,76 @@ def welcome(name):
 # def calculate(data):
 #     return jsonify({"message": f"Received: {data}"})
 
+# @app.route('/calculate', methods=['POST'])
+# def calculate():
+#     import json
+
+#     data = request.get_json()
+#     grid = data.get("grid", [])
+
+#     total = 0
+#     for row in grid:
+#         try:
+#             total += float(row[1])
+#         except:
+#             pass
+
+#     return jsonify({
+#         "total_sum": total,
+#         "rows_received": len(grid),
+#         "message": "Calculation complete"
+#     })
+
+
 @app.route('/calculate', methods=['POST'])
 def calculate():
     import json
-
+    
     data = request.get_json()
-    grid = data.get("grid", [])
+    print("DATA: ", data)
+    earnings = data.get("earnings", [])
+    spendings = data.get("spendings", [])
 
-    total = 0
-    for row in grid:
+    def sum_column(grid):
+        total = 0
+        for row in grid:
+            try:
+                total += float(row[1])
+            except:
+                pass
+        return total
+
+    # Monthly totals
+    monthly_earnings = sum_column(earnings)
+    monthly_spendings = sum_column(spendings)
+    monthly_savings = monthly_earnings - monthly_spendings
+
+    # Yearly totals
+    yearly_earnings = monthly_earnings * 12
+    yearly_spendings = monthly_spendings * 12
+    yearly_savings = monthly_savings * 12
+
+    # Spending breakdown for pie chart
+    breakdown = {}
+    for row in spendings:
         try:
-            total += float(row[1])
+            label = row[0]
+            amount = float(row[1])
+            breakdown[label] = amount
         except:
             pass
 
     return jsonify({
-        "total_sum": total,
-        "rows_received": len(grid),
-        "message": "Calculation complete"
+        "monthly_earnings": monthly_earnings,
+        "monthly_spendings": monthly_spendings,
+        "monthly_savings": monthly_savings,
+
+        "yearly_earnings": yearly_earnings,
+        "yearly_spendings": yearly_spendings,
+        "yearly_savings": yearly_savings,
+
+        "spending_breakdown": breakdown,
+        "message": "Financial analysis complete"
     })
 
 
