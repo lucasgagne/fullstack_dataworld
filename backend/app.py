@@ -3,6 +3,8 @@ from firebase_admin import credentials, firestore, auth
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
+from finance.financial_analysis import compute_financials
+from finance.charts import generate_spending_pie
 
 # Initialize Firebase Admin
 # Make sure this file is in your /backend folder!
@@ -70,55 +72,23 @@ def welcome(name):
 #         "message": "Calculation complete"
 #     })
 
-
 @app.route('/calculate', methods=['POST'])
 def calculate():
-    import json
-    
     data = request.get_json()
-    print("DATA: ", data)
+
     earnings = data.get("earnings", [])
     spendings = data.get("spendings", [])
 
-    def sum_column(grid):
-        total = 0
-        for row in grid:
-            try:
-                total += float(row[1])
-            except:
-                pass
-        return total
+    # 1. Compute financial numbers
+    results = compute_financials(earnings, spendings)
 
-    # Monthly totals
-    monthly_earnings = sum_column(earnings)
-    monthly_spendings = sum_column(spendings)
-    monthly_savings = monthly_earnings - monthly_spendings
+    # 2. Generate pie chart
+    pie_chart = generate_spending_pie(results["spending_breakdown"])
 
-    # Yearly totals
-    yearly_earnings = monthly_earnings * 12
-    yearly_spendings = monthly_spendings * 12
-    yearly_savings = monthly_savings * 12
-
-    # Spending breakdown for pie chart
-    breakdown = {}
-    for row in spendings:
-        try:
-            label = row[0]
-            amount = float(row[1])
-            breakdown[label] = amount
-        except:
-            pass
-
+    # 3. Return everything
     return jsonify({
-        "monthly_earnings": monthly_earnings,
-        "monthly_spendings": monthly_spendings,
-        "monthly_savings": monthly_savings,
-
-        "yearly_earnings": yearly_earnings,
-        "yearly_spendings": yearly_spendings,
-        "yearly_savings": yearly_savings,
-
-        "spending_breakdown": breakdown,
+        **results,
+        "pie_chart": pie_chart,
         "message": "Financial analysis complete"
     })
 
