@@ -3,6 +3,8 @@
 import io
 import base64
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # This tells Matplotlib NOT to try opening a window
 
 def generate_spending_pie(breakdown):
     labels = list(breakdown.keys())
