@@ -5,10 +5,18 @@ from flask_cors import CORS
 import os
 from finance.financial_analysis import compute_financials
 from finance.charts import generate_spending_pie
+from dotenv import load_dotenv
+load_dotenv()
+# # Initialize Firebase
+# cred = credentials.Certificate("serviceAccountKey.json")
 
-# Initialize Firebase
-cred = credentials.Certificate("serviceAccountKey.json")
+import json
+# import os
+firebase_key = json.loads(os.environ["FIREBASE_KEY"])
+cred = credentials.Certificate(firebase_key)
 firebase_admin.initialize_app(cred)
+
+
 db = firestore.client()
 
 app = Flask(__name__)
