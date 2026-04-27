@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-
-const Home = () => {
+// Update the top of your Home component
+const Home = ({ apiBase }) => {  // <--- Add apiBase here inside the curly braces
   const [backendMessage, setBackendMessage] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [nameInput, setNameInput] = useState("");
 
-  // Get the URL from environment variables or default to local for dev
-  const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+  // DELETE THIS LINE: const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+  
+  // Use the prop instead
+  const API_BASE = apiBase; 
+
+  // ... the rest of your functions stay the same
 
   const testConnection = async () => {
     try {

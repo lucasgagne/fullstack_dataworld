@@ -51,7 +51,7 @@ function App() {
             <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/signup" />} />
 
             {/* Private Routes - Passing the apiBase prop */}
-            <Route path="/" element={user ? <Home /> : <Navigate to="/login" />} />
+            <Route path="/" element={user ? <Home apiBase={API_BASE_URL} /> : <Navigate to="/login" />} />
             <Route path="/world" element={user ? <WorldData apiBase={API_BASE_URL} /> : <Navigate to="/login" />} />
             <Route path="/finance" element={user ? <FinancialPlan apiBase={API_BASE_URL} /> : <Navigate to="/login" />} />
             
