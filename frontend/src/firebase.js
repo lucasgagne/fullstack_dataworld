@@ -1,6 +1,7 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore"; // 1. Add this import
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5Fks8PSo_4k3q0jany0BI6ereRNl6-U0",
@@ -18,4 +19,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export default app;
 
-
+export const db = getFirestore(app); // This creates the 'db' binding

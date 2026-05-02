@@ -159,50 +159,40 @@ def calculate():
         "pie_chart": None # We can fix the chart logic next
     })
     
-    
-def calculate_node_monthly(node):
-    """
-    Recursively calculates the monthly value of a node.
-    If useManual is True, it uses manualValue.
-    If False, it sums the calculated values of its children.
-    """
-    # 1. Base conversion logic
-    def to_monthly(val, freq):
-        val = float(val or 0)
-        factors = {'daily': 30.44, 'weekly': 4.33, 'monthly': 1, 'yearly': 1/12}
-        return val * factors.get(freq, 1)
 
-    # 2. Check for Overwrite
-    if node.get('useManual'):
-        return to_monthly(node.get('manualValue'), node.get('timeframe'))
+def calculate_node(node, totals_map):
+    """
+    Recursively calculates monthly totals based on the 'logic' selection.
+    """
+    factors = {'daily': 30.44, 'weekly': 4.33, 'bi-weekly': 2.16, 'monthly': 1, 'yearly': 1/12}
     
-    # 3. If no children, use manualValue anyway as a fallback
-    children = node.get('children', [])
-    if not children:
-        return to_monthly(node.get('manualValue'), node.get('timeframe'))
-    
-    # 4. Otherwise, sum the children's results
-    return sum(calculate_node_monthly(child) for child in children)
+    # If the user selected 'summed', we add up the children
+    if node.get('logic') == 'summed':
+        node_total = 0
+        for child in node.get('children', []):
+            node_total += calculate_node(child, totals_map)
+    else:
+        # If 'manual', use the direct input value
+        val = float(node.get('manualValue') or 0)
+        freq = node.get('timeframe', 'monthly')
+        node_total = val * factors.get(freq, 1)
+
+    totals_map[node.id] = node_total
+    return node_total
 
 @app.route('/calculate-tree', methods=['POST'])
-@token_required
-def calculate_tree(current_user):
+def calculate_tree():
     data = request.json
     tree = data.get('tree')
+    totals = {}
     
-    totals_map = {}
+    # We don't calculate the 'root' itself, but we calculate its top-level children
+    for main_cat in tree.get('children', []):
+        calculate_node(main_cat, totals)
+        
+    return jsonify({"totals": totals})
 
-    def walk_and_catalog(node):
-        # Calculate this specific node's monthly impact
-        val = calculate_node_monthly(node)
-        totals_map[node['id']] = val
-        # Continue walking
-        for child in node.get('children', []):
-            walk_and_catalog(child)
 
-    walk_and_catalog(tree)
-    
-    return jsonify({"totals": totals_map})
 
 # --- 5. START SERVER ---
 if __name__ == '__main__':
