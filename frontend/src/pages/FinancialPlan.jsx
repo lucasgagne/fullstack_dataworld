@@ -1,279 +1,202 @@
-
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { auth } from "../firebase";
 
 const FinancialPlan = ({ apiBase }) => {
-  const initialGrid = [['', ''], ['', ''], ['', ''], ['', ''], ['', '']];
+  const [budgetTree, setBudgetTree] = useState({
+    id: 'root',
+    label: 'Master Overview',
+    children: [
+      { id: 'inc_01', label: 'Income', manualValue: 0, timeframe: 'monthly', logic: 'summed', isProtected: true, children: [
+          { id: 'inc_a', label: 'a', manualValue: 1, timeframe: 'monthly', logic: 'manual', children: [] },
+          { id: 'inc_b', label: 'b', manualValue: 2, timeframe: 'monthly', logic: 'manual', children: [] },
+          { id: 'inc_c', label: 'c', manualValue: 3, timeframe: 'monthly', logic: 'manual', children: [] },
+      ]},
+      { id: 'sav_01', label: 'Savings-Cash', manualValue: 0, timeframe: 'monthly', logic: 'summed', isProtected: true, children: [] },
+      { id: 'spe_01', label: 'Spending', manualValue: 0, timeframe: 'monthly', logic: 'summed', isProtected: true, children: [] },
+    ]
+  });
 
-  const [earningsGrid, setEarningsGrid] = useState(initialGrid);
-  const [spendingsGrid, setSpendingsGrid] = useState(initialGrid);
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [viewPath, setViewPath] = useState(['root']);
+  const [backendTotals, setBackendTotals] = useState({});
+  const [displayTimeframe, setDisplayTimeframe] = useState('monthly');
+  const [isCalculating, setIsCalculating] = useState(false);
 
-  const earningsRef = useRef(null);
-  const spendingsRef = useRef(null);
+  // --- RECURSIVE HELPERS ---
+  const findNode = (path, node) => {
+    if (path.length === 1 && node.id === path[0]) return node;
+    const nextId = path[1];
+    const nextNode = node.children.find(c => c.id === nextId);
+    return findNode(path.slice(1), nextNode);
+  };
 
-  // 1. Fetch the user's specific data on load
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const token = await user.getIdToken();
-        const res = await fetch(`${apiBase}/api/clients`, { // Reusing this route for the user's own data
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await res.json();
-        
-        // If the backend returned a profile, populate the grids
-        if (data && data.length > 0 && data[0].data) {
-          setEarningsGrid(data[0].data.earnings || initialGrid);
-          setSpendingsGrid(data[0].data.spendings || initialGrid);
-        }
-      } catch (err) {
-        console.error("Failed to load user data", err);
-      } finally {
-        setLoading(false);
+  const updateTreeRecursive = (node, targetId, updates, isDelete = false) => {
+    if (node.id === targetId) return { ...node, ...updates };
+    if (node.children) {
+      if (isDelete) {
+        return { ...node, children: node.children.filter(c => c.id !== targetId).map(c => updateTreeRecursive(c, targetId, updates, isDelete)) };
       }
+      return { ...node, children: node.children.map(c => updateTreeRecursive(c, targetId, updates)) };
+    }
+    return node;
+  };
+
+  const handleUpdate = (nodeId, updates) => setBudgetTree(prev => updateTreeRecursive(prev, nodeId, updates));
+  const handleDelete = (nodeId) => window.confirm("Delete row?") && setBudgetTree(prev => updateTreeRecursive(prev, nodeId, {}, true));
+
+  const addRow = () => {
+    const activeNode = findNode(viewPath, budgetTree);
+    const newId = `node_${Math.random().toString(36).substr(2, 9)}`;
+    const newRow = {
+      id: newId, label: 'New Category', manualValue: 0, timeframe: 'monthly', logic: 'manual',
+      children: [
+        { id: `${newId}_a`, label: 'a', manualValue: 1, timeframe: 'monthly', logic: 'manual', children: [] },
+        { id: `${newId}_b`, label: 'b', manualValue: 2, timeframe: 'monthly', logic: 'manual', children: [] },
+        { id: `${newId}_c`, label: 'c', manualValue: 3, timeframe: 'monthly', logic: 'manual', children: [] },
+      ]
     };
-    fetchData();
-  }, [apiBase]);
+    handleUpdate(activeNode.id, { children: [...activeNode.children, newRow] });
+  };
 
-  // 2. Save current data to the Backend
-  const saveToProfile = async () => {
+  const executeCalculation = async () => {
+    setIsCalculating(true);
     try {
       const user = auth.currentUser;
       const token = await user.getIdToken();
-      
-      const response = await fetch(`${apiBase}/api/save-profile`, {
+      const res = await fetch(`${apiBase}/calculate-tree`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          earnings: earningsGrid.filter(row => row.some(cell => cell.trim() !== "")),
-          spendings: spendingsGrid.filter(row => row.some(cell => cell.trim() !== ""))
-        })
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ tree: budgetTree })
       });
-
-      if (response.ok) alert("Data saved to your profile!");
-    } catch (err) {
-      alert("Error saving data");
-    }
+      const data = await res.json();
+      setBackendTotals(data.totals);
+    } catch (e) { alert("Error calculating."); } finally { setIsCalculating(false); }
   };
 
-  // --- LOAD DATA FUNCTION ---
-  const loadFromProfile = async () => {
-    setLoading(true);
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
-      const token = await user.getIdToken();
+  const currentNode = findNode(viewPath, budgetTree);
+  const isRoot = viewPath.length === 1;
 
-      const res = await fetch(`${apiBase}/api/get-profile`, {
-        method: "GET",
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.status === 404) {
-        alert("No saved data found for this account.");
-        return;
-      }
-
-      const profile = await res.json();
-
-      // Convert format: [{label: "Job", value: "100"}] -> ["Job", "100"]
-      if (profile.earnings) {
-        const unpackedEarnings = profile.earnings.map(item => [item.label, item.value]);
-        // Add an empty row at the end so the user can keep typing
-        unpackedEarnings.push(['', '']);
-        setEarningsGrid(unpackedEarnings);
-      }
-
-      if (profile.spendings) {
-        const unpackedSpendings = profile.spendings.map(item => [item.label, item.value]);
-        unpackedSpendings.push(['', '']);
-        setSpendingsGrid(unpackedSpendings);
-      }
-
-      alert("Data synced from cloud! ☁️");
-    } catch (err) {
-      console.error("Load error:", err);
-      alert("Failed to load data.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- HANDLERS (Cleaned up) ---
-  const clearTable = () => {
-    if (window.confirm("Clear all unsaved entries?")) {
-      setEarningsGrid(initialGrid);
-      setSpendingsGrid(initialGrid);
-      setAnalysisResult(null);
-    }
-  };
-
-  const handlePaste = (e, setGrid) => {
-    e.preventDefault();
-    const pasteData = e.clipboardData.getData('text');
-    const newGrid = pasteData.split(/\r?\n/).filter(row => row.trim() !== "").map(row => row.split('\t'));
-    if (newGrid.length > 0) {
-      newGrid.push(new Array(newGrid[0].length).fill(""));
-      setGrid(newGrid);
-    }
-  };
-
-  const handleGridChange = (grid, setGrid, rowIndex, colIndex, value) => {
-    const updated = grid.map((row, rIdx) => {
-      if (rIdx !== rowIndex) return row;
-      return row.map((cell, cIdx) => (cIdx === colIndex ? value : cell));
-    });
-    if (rowIndex === grid.length - 1 && value !== "") {
-      updated.push(new Array(grid[0].length).fill(""));
-    }
-    setGrid(updated);
-  };
-
-  const calculateAnalysis = async () => {
-    const cleanedEarnings = earningsGrid.filter(row => row.some(cell => cell.trim() !== ""));
-    const cleanedSpendings = spendingsGrid.filter(row => row.some(cell => cell.trim() !== ""));
-
-    if (cleanedEarnings.length === 0 || cleanedSpendings.length === 0) {
-      return alert("Please enter or paste data into BOTH grids!");
-    }
-
-    try {
-      // 1. Get the token from Firebase
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
-
-      const response = await fetch(`${apiBase}/calculate`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // <--- ADD THIS LINE
-        },
-        body: JSON.stringify({ 
-          earnings: cleanedEarnings, 
-          spendings: cleanedSpendings 
-        })
-      });
-
-      if (!response.ok) throw new Error("Calculation failed");
-
-      const data = await response.json();
-      setAnalysisResult(data);
-    } catch (err) {
-      console.error(err);
-      alert("Calculation error: check console");
-    }
-  };
-
-  if (loading) return <div style={{padding: '50px'}}>Loading your data...</div>;
+  // Calculation Logic for UI Footer
+  const factor = displayTimeframe === 'yearly' ? 12 : 1;
+  const inc = (backendTotals['inc_01'] || 0) * factor;
+  const spe = (backendTotals['spe_01'] || 0) * factor;
+  const savingsRate = inc - spe;
 
   return (
-    <div style={{ padding: '30px', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-        <h2>My Financial Plan</h2>
-
-      </div>
-{/* LOAD DATA BUTTON */}
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <button onClick={loadFromProfile} style={loadBtnStyle}> Load Data</button>
-        <button onClick={saveToProfile} style={saveBtnStyle}>Save Data</button>
-        <button onClick={clearTable} style={clearBtnStyle}>Clear Sheet</button>
-      </div>
-
-      <div style={{ display: 'flex', gap: '30px' }}>
-        {/* EARNINGS */}
-        <div style={{ flex: 1 }}>
-          <h3>Earnings</h3>
-          <div onPaste={(e) => handlePaste(e, setEarningsGrid)} style={viewportStyle}>
-            <div style={headerRowStyle}>
-              <div style={headerCellStyle}>SOURCE</div>
-              <div style={headerCellStyle}>AMOUNT</div>
-            </div>
-            {earningsGrid.map((row, rIdx) => (
-              <div key={rIdx} style={{ display: 'flex' }}>
-                {row.map((cell, cIdx) => (
-                  <input
-                    key={`${rIdx}-${cIdx}`}
-                    value={cell}
-                    onChange={(e) => handleGridChange(earningsGrid, setEarningsGrid, rIdx, cIdx, e.target.value)}
-                    placeholder="-"
-                    style={cellStyle}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SPENDINGS */}
-        <div style={{ flex: 1 }}>
-          <h3>Spendings</h3>
-          <div onPaste={(e) => handlePaste(e, setSpendingsGrid)} style={viewportStyle}>
-            <div style={headerRowStyle}>
-              <div style={headerCellStyle}>CATEGORY</div>
-              <div style={headerCellStyle}>AMOUNT</div>
-            </div>
-            {spendingsGrid.map((row, rIdx) => (
-              <div key={rIdx} style={{ display: 'flex' }}>
-                {row.map((cell, cIdx) => (
-                  <input
-                    key={`${rIdx}-${cIdx}`}
-                    value={cell}
-                    onChange={(e) => handleGridChange(spendingsGrid, setSpendingsGrid, rIdx, cIdx, e.target.value)}
-                    placeholder="-"
-                    style={cellStyle}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+    <div style={pageStyle}>
+      <div style={navHeader}>
+        {!isRoot && <button onClick={() => setViewPath(viewPath.slice(0, -1))} style={btnStyle}>← Back</button>}
+        <h2>{currentNode.label}</h2>
+        <div style={{marginLeft: 'auto', display: 'flex', gap: '10px'}}>
+            <select value={displayTimeframe} onChange={(e) => setDisplayTimeframe(e.target.value)} style={selectStyle}>
+                <option value="monthly">Show Monthly</option>
+                <option value="yearly">Show Yearly</option>
+            </select>
+            <button onClick={addRow} style={addBtnStyle}>+ Add Row</button>
+            <button onClick={executeCalculation} style={calcBtnStyle} disabled={isCalculating}>
+                {isCalculating ? "..." : "🚀 Calculate"}
+            </button>
         </div>
       </div>
 
-      <button onClick={calculateAnalysis} style={calculateBtnStyle}>Calculate Analysis</button>
+      <div style={tableStyle}>
+        <div style={tableHeader}>
+          <div style={{ flex: 2 }}>CATEGORY</div>
+          <div style={{ flex: 1.5 }}>LOGIC</div>
+          <div style={{ flex: 1 }}>MANUAL AMT</div>
+          <div style={{ flex: 1 }}>TIMEFRAME</div>
+          <div style={{ flex: 1 }}>TOTAL</div>
+          <div style={{ width: '40px' }}></div>
+        </div>
 
-      {analysisResult && (
-        <div style={{ marginTop: '20px', padding: '20px', background: '#fff', borderRadius: '8px' }}>
-          <h3>📊 Summary</h3>
-          <p>Monthly Savings: <strong>${analysisResult.monthly_savings}</strong></p>
-          <p>Yearly Savings: <strong>${analysisResult.yearly_savings}</strong></p>
-          {analysisResult.pie_chart && (
-            <img 
-              src={`data:image/png;base64,${analysisResult.pie_chart}`} 
-              alt="Pie Chart"
-              style={{ width: "300px", marginTop: "10px", borderRadius: '8px' }}
-            />
-          )}
+        {/* MASTER OVERWRITE ROW (Sub-tables only)  */}
+        {!isRoot && (
+            <div style={{...rowStyle, background: '#eef2f7', borderBottom: '2px solid #cbd5e0'}}>
+                <div style={{ flex: 2, fontWeight: 'bold' }}>MASTER OVERWRITE</div>
+                <div style={{ flex: 1.5 }}>
+                    <select value={currentNode.logic} onChange={(e) => handleUpdate(currentNode.id, { logic: e.target.value })} style={selectStyle}>
+                        <option value="manual">Manual Entry</option>
+                        <option value="summed">Summed Table</option>
+                    </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                    <input type="number" value={currentNode.manualValue} onChange={(e) => handleUpdate(currentNode.id, { manualValue: e.target.value })} disabled={currentNode.logic === 'summed'} style={inputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                    <select value={currentNode.timeframe} onChange={(e) => handleUpdate(currentNode.id, { timeframe: e.target.value })} style={selectStyle}>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div style={{ flex: 1, fontWeight: 'bold' }}>${(backendTotals[currentNode.id] || 0).toFixed(2)}</div>
+                <div style={{ width: '40px' }}></div>
+            </div>
+        )}
+
+        {/* LIST ROWS */}
+        {currentNode.children.map(child => (
+          <div key={child.id} style={rowStyle}>
+            <div style={{ flex: 2, display: 'flex', gap: '8px' }}>
+               <input value={child.label} onChange={(e) => handleUpdate(child.id, { label: e.target.value })} style={nameInputStyle} />
+               <button onClick={() => setViewPath([...viewPath, child.id])} style={drillBtn}>🔍</button>
+            </div>
+            <div style={{ flex: 1.5 }}>
+              <select value={child.logic} onChange={(e) => handleUpdate(child.id, { logic: e.target.value })} style={selectStyle}>
+                <option value="manual">Manual Entry</option>
+                <option value="summed">Summed Table</option>
+              </select>
+            </div>
+            <div style={{ flex: 1 }}><input type="number" value={child.manualValue} onChange={(e) => handleUpdate(child.id, { manualValue: e.target.value })} disabled={child.logic === 'summed'} style={inputStyle} /></div>
+            <div style={{ flex: 1 }}>
+              <select value={child.timeframe} onChange={(e) => handleUpdate(child.id, { timeframe: e.target.value })} style={selectStyle}>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>${(backendTotals[child.id] || 0).toFixed(2)}</div>
+            <div style={{ width: '40px' }}>{!child.isProtected && <button onClick={() => handleDelete(child.id)} style={deleteBtn}>🗑️</button>}</div>
+          </div>
+        ))}
+
+        {/* TABLE SUMMATION ROW */}
+        <div style={{...rowStyle, background: '#f8f9fa', fontWeight: 'bold'}}>
+            <div style={{flex: 5.5}}>TABLE SUM TOTAL</div>
+            <div style={{flex: 1}}>${currentNode.children.reduce((acc, c) => acc + (backendTotals[c.id] || 0), 0).toFixed(2)}</div>
+            <div style={{width: '40px'}}></div>
+        </div>
+      </div>
+
+      {/* GLOBAL SUMMARY (Root only) */}
+      {isRoot && (
+        <div style={summaryCard}>
+            <h3>Financial Analysis Summary ({displayTimeframe})</h3>
+            <div style={{display: 'flex', justifyContent: 'space-between', padding: '10px 0'}}>
+                <span>Total Income:</span> <strong>${inc.toFixed(2)}</strong>
+            </div>
+            <div style={{display: 'flex', justifyContent: 'space-between', padding: '10px 0'}}>
+                <span>Total Spending:</span> <strong>${spe.toFixed(2)}</strong>
+            </div>
+            <div style={{display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '2px solid #eee', marginTop: '10px'}}>
+                <span>Additional Saving Rate:</span> <strong style={{color: savingsRate >= 0 ? 'green' : 'red'}}>${savingsRate.toFixed(2)}</strong>
+            </div>
         </div>
       )}
     </div>
   );
 };
 
-// --- STYLES ---
-const viewportStyle = { height: '350px', overflow: 'auto', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#fff' };
-const headerRowStyle = { display: 'flex', position: 'sticky', top: 0, backgroundColor: '#f0f0f0', zIndex: 10 };
-const headerCellStyle = { flex: 1, padding: '12px', fontSize: '11px', fontWeight: 'bold' };
-const cellStyle = { flex: 1, padding: '12px', borderBottom: '1px solid #eee', outline: 'none' };
-const saveBtnStyle = { padding: '10px 20px', backgroundColor: '#646cff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' };
-const clearBtnStyle = { padding: '10px 20px', backgroundColor: '#ddd', border: 'none', borderRadius: '4px', cursor: 'pointer' };
-const calculateBtnStyle = { marginTop: '20px', padding: '12px 30px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' };
-const loadBtnStyle = { 
-  padding: '10px 20px', 
-  backgroundColor: '#4CAF50', 
-  color: 'white', 
-  border: 'none', 
-  borderRadius: '5px', 
-  cursor: 'pointer' 
-};
+const summaryCard = { marginTop: '30px', padding: '25px', background: 'white', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', maxWidth: '500px' };
+const pageStyle = { padding: '40px', background: '#f8f9fa', minHeight: '100vh' };
+const navHeader = { display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '25px' };
+const tableStyle = { background: 'white', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' };
+const tableHeader = { display: 'flex', padding: '15px 20px', background: '#2c3e50', color: 'white' };
+const rowStyle = { display: 'flex', padding: '12px 20px', borderBottom: '1px solid #eee', alignItems: 'center' };
+const nameInputStyle = { border: 'none', borderBottom: '1px solid #ddd', padding: '4px', width: '70%' };
+const drillBtn = { background: 'none', border: 'none', cursor: 'pointer' };
+const deleteBtn = { background: 'none', border: 'none', cursor: 'pointer', color: 'red' };
+const inputStyle = { width: '80%', padding: '5px' };
+const selectStyle = { padding: '5px' };
+const btnStyle = { padding: '8px 15px', cursor: 'pointer' };
+const addBtnStyle = { padding: '8px 18px', background: '#3498db', color: 'white', border: 'none', cursor: 'pointer' };
+const calcBtnStyle = { padding: '8px 22px', background: '#27ae60', color: 'white', border: 'none', cursor: 'pointer' };
 
 export default FinancialPlan;
